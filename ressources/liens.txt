@@ -1,0 +1,21 @@
+
+https://hjwwalters.com/3d-lidar-room-scanner/
+https://www.reddit.com/r/robotics/comments/1hc2fwf/rather_stupid_question_ultrasonic_lidar/
+
+
+
+tps:
+https://icn.lycee-valin.fr/dokuwiki/doku.php?id=arduino:utiliser_un_capteur_a_ultrasons
+https://elearning-deprecated.univ-annaba.dz/pluginfile.php/65055/mod_resource/content/0/TP%20N%C2%B02_CIMEMS.pdf
+http://bts2m.free.fr/TP_Arduino/07-Ultrason.html
+https://arduino.blaisepascal.fr/capteur-de-distance-a-ultrasons/
+
+tsp:
+arbre kd
+minimum spanning tree
+chemin hamiltonien + 2-opt
+Heuristique de Lin-Kernighan
+branch and bound, simplex
+programmation linéaire (entière?)
+https://tspvis.com/
+projet concorde
