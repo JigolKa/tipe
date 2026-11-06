@@ -77,17 +77,6 @@ let kruskal (g: graphe_complet): (int*int) list array =
 
 (* FIN KRUSKAL *)
 
-
-
-let graphe_tsp : graphe_complet = [|
-  [| 0;  7;  9;  8; 12;  5|];
-  [| 7;  0;  6; 10;  4; 11|];
-  [| 9;  6;  0;  3;  8; 13|];
-  [| 8; 10;  3;  0;  7;  9|];
-  [|12;  4;  8;  7;  0;  6|];
-  [| 5; 11; 13;  9;  6;  0|]
-|]
-
 let dist ((x,y): cell) ((x',y'): cell) : int =
   let dx = abs (x-x') in
   let dy = abs (y-y') in
@@ -200,6 +189,75 @@ let approximation2opt_ACM (g: graphe_complet) : chaine =
   let chaine = tri_prefixe_ACM acm in
   approximation2opt_blueprint g chaine
 
+let remove_duplicates (l: 'a list) :'a list =
+  let ans = ref [] in
+  let n = List.length l in
+  let tbl = Hashtbl.create n in
+  List.iter (fun x ->
+    if not (Hashtbl.mem tbl x) then
+      begin
+        Hashtbl.add tbl x true;
+        ans := x::!ans
+      end
+    ) l;
+    !ans
+
+
+(* génère les nombres entre [0, 2^n -1] tq ils ont k bits = 1 *)
+let rec generer_nombres (n: int) (k: int) : int list =
+  if k = 0 then [0]
+  else
+    begin
+      (* on ajoute un bit de plus *)
+      let previous = generer_nombres n (k-1) in
+      let next = ref [] in
+      for i=0 to n-1 do
+        let pos = 1 lsl i in
+        List.iter (fun bitset ->
+          begin
+            let bit_already_set = bitset land pos = pos in
+            if not bit_already_set then
+              next := (bitset lor pos)::!next
+          end
+          ) previous
+      done;
+      remove_duplicates !next
+    end
+
+let held_karp (graph: graphe_complet) : int = 
+  let n = Array.length graph in
+  let g = Array.make_matrix (1 lsl n) n 0 in
+  let pow = Array.make n 0 in
+  pow.(0) <- 1;
+  for i=1 to n-1 do
+    pow.(i) <- 2*pow.(i-1);
+    g.(pow.(i)).(i) <- graph.(0).(i)
+  done;
+
+  for s=2 to n-1 do
+    List.iter (fun bitset -> (
+      for i=1 to n-1 do
+        if bitset land pow.(i) = pow.(i) then
+          begin
+            let mini = ref Int.max_int in
+            let set_without_k = bitset lxor pow.(i) in
+            for m=1 to n-1 do
+              if i <> m && (set_without_k land pow.(m) = pow.(m)) then
+                begin
+                  mini := min !mini (g.(set_without_k).(m) + graph.(m).(i))
+                end
+            done;
+            g.(bitset).(i) <- !mini
+          end
+      done;
+    )) (generer_nombres n s)
+  done;
+  let mini = ref Int.max_int in
+  let num = (1 lsl n) - 2 in (* {1,..,n-1} *)
+  for k=1 to n-1 do
+    mini := min !mini (g.(num).(k) + graph.(k).(0))
+  done;
+  !mini
 
 let somme_chaine (g:graphe_complet) (chaine: chaine) : int =
   let ans = ref 0 in
@@ -214,9 +272,11 @@ let show_diff (g: graphe_complet) : unit =
   let a = approximation2opt_ACM g in
   let b = approximation2opt_greedy g in
   Printf.printf "Approximation depuis glouton: %d\n" (somme_chaine g a);
-  Printf.printf "Approximation depuis ACM: %d\n" (somme_chaine g b)
+  Printf.printf "Approximation depuis ACM: %d\n" (somme_chaine g b);
+  Printf.printf "Valeur exacte Held-Karp: %d\n" (held_karp g)
 
 
+(* EXEMPLES *)
 let graphe_diff : graphe_complet = [|
   [| 0;  6;  8; 10; 11;  9|];
   [| 6;  0;  7;  1; 13; 12|];
@@ -233,4 +293,13 @@ let piege : graphe_complet = [|
   [| 10; 10;  1;  0;  1;  10|];
   [| 10; 10; 10;  1;  0;   1|];
   [|100; 10; 10; 10;  1;   0|]
+|]
+
+let graphe_tsp : graphe_complet = [|
+  [| 0;  7;  9;  8; 12;  5|];
+  [| 7;  0;  6; 10;  4; 11|];
+  [| 9;  6;  0;  3;  8; 13|];
+  [| 8; 10;  3;  0;  7;  9|];
+  [|12;  4;  8;  7;  0;  6|];
+  [| 5; 11; 13;  9;  6;  0|]
 |]
