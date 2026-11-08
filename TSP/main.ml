@@ -4,8 +4,19 @@ type chaine = int array
 type cell = int*int
 
 
+let () = Random.self_init ()
 
-(* DEBUT UNION-FIND *)
+let somme_chaine (g:graphe_complet) (chaine: chaine) : int =
+  let ans = ref 0 in
+  let n = Array.length chaine in
+  for i=0 to n-2 do
+    ans := !ans + g.(chaine.(i)).(chaine.(i+1))
+  done;
+  !ans + g.(chaine.(n-1)).(chaine.(0))
+
+
+
+(* --- UNION-FIND --- *)
 type uf = int array (* parent *)
 let init_union_find (n: int) : uf =
     Array.init n (fun i -> i)
@@ -23,9 +34,11 @@ let merge_classes (u: uf) (a: int) (b: int) : uf =
     let x = find_parent u a in
     let y = find_parent u b in
     u.(x)<-y;u
-(* FIN UNION-FIND *)
+(* --- UNION-FIND --- *)
 
-(* DEBUT TRI FUSION *)
+
+
+(* --- TRI FUSION --- *)
 let t = [9;2;4;1;7;0;3;19;90;-3]
 
 let rec merge_lists (l1: 'a list) (l2: 'a list) (comp: 'a -> int) : 'a list =
@@ -49,10 +62,10 @@ let rec tri_fusion (a: 'a list) (comp: 'a -> int) : 'a list =
             let right = tri_fusion right_sub comp in
             merge_lists left right comp
         end
-(* FIN TRI FUSION *)
+(* --- TRI FUSION --- *)
 
 
-(* DEBUT KRUSKAL *)
+(* --- KRUSKAL --- *)
 let kruskal (g: graphe_complet): (int*int) list array =
     let n = Array.length g in
     let aretes = ref [] in
@@ -73,9 +86,7 @@ let kruskal (g: graphe_complet): (int*int) list array =
             parents := merge_classes !parents u v
             end
         ) !aretes; acm
-
-
-(* FIN KRUSKAL *)
+(* --- KRUSKAL --- *)
 
 let dist ((x,y): cell) ((x',y'): cell) : int =
   let dx = abs (x-x') in
@@ -167,6 +178,16 @@ let approximation2opt_greedy (g: graphe_complet) : chaine =
   let chaine = (greedy_TSP g 0) in
   approximation2opt_blueprint g chaine
 
+let greedy_random (g: graphe_complet) (ntest: int) : float =
+  let sum = ref 0. in
+  for i=0 to ntest-1 do
+    let s = Random.int_in_range ~min:0 ~max:(Array.length g -1) in
+    let ans = greedy_TSP g s in
+    sum := !sum +. (float_of_int (somme_chaine g ans))
+  done; !sum /. (float_of_int ntest)
+
+
+(* TODO: random start? *)
 let tri_prefixe_ACM (acm: (int*int) list array) : chaine =
   let n = Array.length acm in
   let vu = Array.make n false in
@@ -240,11 +261,11 @@ let held_karp (graph: graphe_complet) : int =
         if bitset land pow.(i) = pow.(i) then
           begin
             let mini = ref Int.max_int in
-            let set_without_k = bitset lxor pow.(i) in
+            let set_without_i = bitset lxor pow.(i) in
             for m=1 to n-1 do
-              if i <> m && (set_without_k land pow.(m) = pow.(m)) then
+              if i <> m && (set_without_i land pow.(m) = pow.(m)) then
                 begin
-                  mini := min !mini (g.(set_without_k).(m) + graph.(m).(i))
+                  mini := min !mini (g.(set_without_i).(m) + graph.(m).(i))
                 end
             done;
             g.(bitset).(i) <- !mini
@@ -259,13 +280,7 @@ let held_karp (graph: graphe_complet) : int =
   done;
   !mini
 
-let somme_chaine (g:graphe_complet) (chaine: chaine) : int =
-  let ans = ref 0 in
-  let n = Array.length chaine in
-  for i=0 to n-2 do
-    ans := !ans + g.(chaine.(i)).(chaine.(i+1))
-  done;
-  !ans + g.(chaine.(n-1)).(chaine.(0))
+
 
 (* show_diff renvoie 2 valeurs différentes pour graphe_diff *)
 let show_diff (g: graphe_complet) : unit = 
@@ -273,6 +288,7 @@ let show_diff (g: graphe_complet) : unit =
   let b = approximation2opt_greedy g in
   Printf.printf "Approximation depuis glouton: %d\n" (somme_chaine g a);
   Printf.printf "Approximation depuis ACM: %d\n" (somme_chaine g b);
+  Printf.printf "Glouton avec %d tests: %.2f\n" 1000 (greedy_random g 1000);
   Printf.printf "Valeur exacte Held-Karp: %d\n" (held_karp g)
 
 
