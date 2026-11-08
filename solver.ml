@@ -2,6 +2,8 @@ type noeud = {
   mutable chemin : int list;
   mutable heuristique: float;
   mutable cout_actuel:float;
+  mutable taille_chemin:int;
+  indice :int;
 }
 
 type tas_min = {
@@ -11,9 +13,14 @@ type tas_min = {
 
 }
 
-let create_noeud (chemin_p :int list)(h:float)(c:float):noeud= {chemin = chemin_p ;heuristique = h;cout_actuel = c}
+type graphe = {
+    matrix : float array array;
+    nb_sommet:int;
+}
+
+let create_noeud (chemin_p :int list)(h:float)(c:float)(i:int)(t_c:int):noeud= {taille_chemin =t_c ;chemin = chemin_p ;heuristique = h;cout_actuel = c;indice =i}
 let creer_tas (capacite_s:int) =
-  let noeud_vide = create_noeud [] 0.0 0.0 in
+  let noeud_vide = create_noeud [] 0.0 0.0 0 0 in
   let tas = { taille = 0;
                 capacite=capacite_s;
                 elements = Array.make capacite_s noeud_vide  } in
@@ -51,7 +58,7 @@ let min (a:int)(b:int):int =
 let rec percolation_ascendante (tas:tas_min)(i:int):unit = 
   if i=0 then
     ()
-   else if tas.elements.(i).cout_actuel < tas.elements.(parent i).cout_actuel then begin
+   else if tas.elements.(i).heuristique < tas.elements.(parent i).heuristique then begin
     echanger tas i (parent i);
     percolation_ascendante tas (parent i)
   end
@@ -62,14 +69,14 @@ let rec percolation_descendante (tas:tas_min)(i:int):unit =
   let d = fils_droit i in 
   (* On cherche le plus petit entre le parent i et le fils gauche g s'il existe *)
   let min_g = 
-    if g < tas.taille && tas.elements.(g).cout_actuel < tas.elements.(i).cout_actuel then 
+    if g < tas.taille && tas.elements.(g).heuristique < tas.elements.(i).heuristique then 
       g 
     else 
       i 
   in
   (*  On compare ce résultat avec le fils droit d s'il existe *)
   let min_id = 
-    if d < tas.taille && tas.elements.(d).cout_actuel < tas.elements.(min_g).cout_actuel then 
+    if d < tas.taille && tas.elements.(d).heuristique < tas.elements.(min_g).heuristique then 
       d 
     else 
       min_g 
@@ -84,7 +91,7 @@ let pop (tas:tas_min):noeud =
   if tas.taille =0 then failwith "Erreur ,le tas est vide" ;
   let min = tas.elements.(0) in 
   tas.elements.(0) <- tas.elements.(tas.taille -1);
-  tas.elements.(tas.taille -1) <-create_noeud [] 0.0 0.0;
+  tas.elements.(tas.taille -1) <-create_noeud [] 0.0 0.0 0 0;
   tas.taille <- tas.taille - 1;
   percolation_descendante tas 0;
   min
@@ -122,30 +129,91 @@ let charger_matrice (chemin : string) : float array array =
   boucle []
 
 
+let prim_heuristique (g:graphe)(s:int):float= 
+  (*------Création de tableau indéxé par le nombre de sommet de g--------*)
+  (*On définit un tableau de cout *)
+  let cout = Array.make g.nb_sommet infinity in
+  (*Et un tableau de predecesseurs tous initialisés à None*)
+  let pred = Array.make g.nb_sommet None in
+  (*Et un tableau verifiant la visite ou non d'un sommet indéxé*)
+  let visite = Array.make g.nb_sommet false in 
+  (*---------------------------------------------------------------------*)
+  let cout_total = ref 0.0 in
+  cout.(s) <- 0.0;
+  pred.(s)<-Some(s);
+  let noeud_s = create_noeud [] 0.0 cout.(s) s 0 in
+  let todo = creer_tas g.nb_sommet in
+  push todo noeud_s;
+  while todo.taille>0 do
+    let u = pop todo in
+    if not visite.(u.indice) then begin
+      visite.(u.indice) <- true;
+      cout_total := !cout_total +. cout.(u.indice);
+      for i=0 to g.nb_sommet -1 do 
+          if not visite.(i) && cout.(i) >= g.matrix.(u.indice).(i) then begin
+            pred.(i)<-Some(u.indice);
+            cout.(i)<-g.matrix.(u.indice).(i);
+            let noued_i = create_noeud [] 0.0 cout.(i) i 0 in
+            push todo noued_i
+          end
+      done
+    end
+  done;
+  !cout_total
 
+
+
+let solver_by_branch_and_bound  (g:graphe)(s:int)(nb_debris : int):int list =
+  let meilleures_cout_global = ref infinity in
+  let tous_debris = List.init nb_debris (fun i -> i) in
+  let meillleur_chemin_debris = ref [] in 
+  let todo = creer_tas nb_debris in
+  let noeud_racine = create_noeud [s] (prim_heuristique g s) 0.0 s 1 in
+  push todo noeud_racine ;
+  while (todo.taille > 0) do
+    let noeud_courant = pop todo in
+    if noeud_courant.heuristique>= !meilleures_cout_global then begin
+      ()
+    end
+    if noeud_courant.taille_chemin = g.nb_sommet then begin
+      if noeud_courant.cout_actuel<!meilleures_cout_global then begin
+        meilleures_cout_global := noeud_courant.cout_actuel;
+        meillleur_chemin_debris:= noeud_courant.chemin;
+      end
+    end
+
+    for debris_voisin=0 to g.nb_sommet-1 do 
+      if not (List.mem i noeud_courant.chemin) then begin
+        let nouveau_cout =noeud_courant.cout_actuel + g.matrix.(noeud.noeud_courant.indice).(debris_voisin) in
+        if nouveau_cout >= !meilleures_cout_global then begin
+          ()
+        end
+        let debris_restants = List.filter (fun x -> not (List.mem x noeud_courant.chemin)) tous_debris in
+        let heuristique = prim_heuristique g debris_voisin in
+        let nouvelle_borne = nouveau_cout + heuristique in 
+        if nouvelle_borne<!meilleures_cout_global then begin
+          let nouveau_noeud = create_noeud  debris_voisin :: noeud_courant.chemin in
+          push todo nouveau_noeud;
+        end
+      
+
+      end
+    done
+  done;
+  (!meilleures_cout_global,!meilleures_cout_global)
 
 
 let mat_cout = charger_matrice "matrice_cout.txt" 
 
-()
-(* let solver_by_branch_and_bound  (mat_cout_dv :float array array)(nb_debris : int):int list =
-  let meilleures_solutions = ref [] in
-  let meillleur_cout_debris = 0.0 in 
-  let todo = creer_tas nb_debris in
-  let noeud_e = create_noeud [] 0.0 0.0 in
-  
-  let best_dv = 0 in  
-  push todo noeud_e ;
-  while todo.taille>0 do
-    Printf.printf "hello"rf
-  done
- *)
+
+
+
 
 let tas = creer_tas 4 
-let noeud1 = {chemin = [];cout_actuel=40.3;heuristique = 0.0} 
-let noeud2 = {chemin = [];cout_actuel=60.2;heuristique = 0.0} 
-let noeud3 = {chemin = [];cout_actuel=8.2;heuristique = 0.0} 
-let noeud4 =  {chemin = [];cout_actuel=87.2;heuristique = 0.0} 
+let noeud1 = create_noeud [] 0.0 40.3 1 
+let noeud2 = create_noeud [] 0.0 60.2 1 
+let noeud3 = create_noeud [] 0.0 86.2 1 
+let noeud4 =  create_noeud [] 0.0 3.0 1 
 
 
 let () = 
@@ -155,7 +223,7 @@ let () =
   push tas noeud4;
 
   affiche_tas tas 0 " " ;
-  pop tas ;
+  let noued_recup = pop tas in
   print_newline();
   affiche_tas tas 0 " ";
   print_newline()
