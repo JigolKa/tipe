@@ -282,13 +282,15 @@ let held_karp (graph: graphe_complet) : int =
 
 
 
+
+
 (* show_diff renvoie 2 valeurs différentes pour graphe_diff *)
 let show_diff (g: graphe_complet) : unit = 
   let a = approximation2opt_ACM g in
   let b = approximation2opt_greedy g in
   Printf.printf "Approximation depuis glouton: %d\n" (somme_chaine g a);
   Printf.printf "Approximation depuis ACM: %d\n" (somme_chaine g b);
-  Printf.printf "Glouton avec %d tests: %.2f\n" 1000 (greedy_random g 1000);
+  Printf.printf "Glouton aléatoire avec %d tests: %.2f\n" 1000 (greedy_random g 1000);
   Printf.printf "Valeur exacte Held-Karp: %d\n" (held_karp g)
 
 
@@ -337,3 +339,65 @@ let graphe_15 : graphe_complet = [|
   [| 71; 37; 46; 38; 91; 64; 68;  4; 91; 80; 62; 81; 59;  0; 61 |];
   [| 94; 13; 49; 37; 48; 15; 34; 74; 67; 55; 30; 90; 87; 61;  0 |];
 |]
+
+
+
+(* --- SIMPLEX --- *)
+
+(* https://medium.com/@muditbits/simplex-method-for-linear-programming-1f88fc981f50 *)
+
+type constraint_matrix = int array array
+type augmented_matrix = int array array
+type 'a matrix = 'a array array
+
+let print_matrix (a: 'a array array) : unit =
+  let n =  Array.length a in
+  let m  = Array.length a.(0) in
+  for i=0 to n-1 do
+    for j=0 to m-1 do
+      Printf.printf "%d " a.(i).(j)
+    done;
+    Printf.printf "\n"
+  done
+
+(* ajoute l'identité à droite ie renvoie [ a | I_m ] *)
+let augment_matrix (a: constraint_matrix) : augmented_matrix =
+  let m = Array.length a in (* number of inequalities *)
+  let n  = Array.length a.(0) in (* number of variables *)
+  let ans  = Array.make_matrix m (n+m) 0 in
+  for i=0 to m-1 do
+    for j=0 to n-1 do
+      ans.(i).(j) <- a.(i).(j)
+    done;
+    ans.(i).(n+i) <- 1
+  done; ans
+
+let test_augment_matrix () = 
+  let test = [|
+    [|0;4;2|];
+    [|3;2;1|]
+  |] in
+  print_matrix (augment_matrix test)
+
+
+(* renvoie l'indice de la variable entrante et sortante *)
+let find_entering_exiting_indices (a: int matrix) (rhs: int array) (objective_row: int array) : int*int =
+  let m = Array.length a in
+  let n = Array.length a.(0) in
+  assert(Array.length objective_row = n);
+  assert(Array.length rhs = m);
+  let entering_mini = ref Int.max_int in
+  let entering_idx = ref (-1) in (* column *)
+  for i=0 to n-1 do
+    if objective_row.(i) < !entering_mini then
+      (entering_idx := i; entering_mini := objective_row.(i))
+  done;
+  let exiting_mini = ref Float.max_float in
+  let exiting_idx = ref (-1) in
+  for i=0 to m-1 do
+    let candidate = (float_of_int rhs.(i)) /. (float_of_int a.(i).(!entering_idx)) in
+    if candidate < !exiting_mini then
+      (exiting_idx:=i;exiting_mini:=candidate)
+  done; (!entering_idx, !exiting_idx)
+
+(* let gauss_jordan  *)
