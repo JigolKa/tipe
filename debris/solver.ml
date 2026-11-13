@@ -112,9 +112,12 @@ let push (tas:tas_min)(new_noeud :noeud):unit=
     affiche_tas tas (fils_gauche i) (indentation ^ "    ")
   end 
 
-let charger_matrice (chemin : string) : float array array =
+let charger_matrice (chemin : string) : (float array array*int) =
   (*On stocke le fichier ouvert*)
   let ic = open_in chemin in
+  (* 1. On lit la première ligne contenant uniquement le nombre de débris *)
+  let nb_debris = int_of_string (String.trim (input_line ic)) in
+
   let rec boucle acc =
     match input_line ic with
     | ligne ->
@@ -126,108 +129,137 @@ let charger_matrice (chemin : string) : float array array =
         close_in ic;
         Array.of_list (List.rev acc)
   in
-  boucle []
+  (boucle [],nb_debris)
 
 
-let prim_heuristique (g:graphe)(s:int):float= 
-  (*------Création de tableau indéxé par le nombre de sommet de g--------*)
+let prim_heuristique (g:graphe)(s:int)(deja_visite:int list):float= 
+  (*------Création de tableaux indéxés par le nombre de sommets de g--------*)
   (*On définit un tableau de cout *)
   let cout = Array.make g.nb_sommet infinity in
   (*Et un tableau de predecesseurs tous initialisés à None*)
   let pred = Array.make g.nb_sommet None in
   (*Et un tableau verifiant la visite ou non d'un sommet indéxé*)
   let visite = Array.make g.nb_sommet false in 
+  List.iter (fun v-> visite.(v) <- true) deja_visite ;
+  visite.(s) <- false;
   (*---------------------------------------------------------------------*)
+  (* On crée un réf du cout total de l'arbre *)
+
   let cout_total = ref 0.0 in
+  
+  (* On fixe le coût du sommet de depart à 0 *)
   cout.(s) <- 0.0;
+  
+  (* On defnit le sommet de départ comme son propre pred *)
   pred.(s)<-Some(s);
+  
+  (* On instancie le noeud de départ avec son cout *)
   let noeud_s = create_noeud [] 0.0 cout.(s) s 0 in
+  
+  (* On crée un tas min pour stocker les sommets à explorer *)
   let todo = creer_tas g.nb_sommet in
+  
+  (* On insère le sommet de départ dans le tas *)
   push todo noeud_s;
+  
+  (* On continue tant que le tas n'est pas vide*)
   while todo.taille>0 do
+    
+    (* On pop le tas en extrayant le min*)
     let u = pop todo in
+    
+    (* On vérifie si on n'a pas traité ce sommet *)
     if not visite.(u.indice) then begin
+      
+      (* On marque comme visite *)
       visite.(u.indice) <- true;
+      
+      (* On ajoute le cout de l'arête selectionnee au coût total *)
       cout_total := !cout_total +. cout.(u.indice);
+      
+      (* On parcourt tous les autres sommets du graphe *)
       for i=0 to g.nb_sommet -1 do 
+          
+          (* On regarde si le sommet i est non visité et si on a trouvé un chemin moins couteux vers lui *)
           if not visite.(i) && cout.(i) >= g.matrix.(u.indice).(i) then begin
+            
+            (* On enregistre u comme le meilleur point de départ actuel pour aller vers i *)
             pred.(i)<-Some(u.indice);
+            
+            (* On met à jour le meilleur coût pour atteindre i *)
             cout.(i)<-g.matrix.(u.indice).(i);
-            let noued_i = create_noeud [] 0.0 cout.(i) i 0 in
-            push todo noued_i
+            
+            (* On crée un nouveau noeud avec ce cout actualisé *)
+            let noeud_i = create_noeud [] 0.0 cout.(i) i 0 in
+            
+            (* On push ce noeud mis à jour dans le tas pour le prochain tour *)
+            push todo noeud_i
           end
       done
     end
   done;
+  
+  (* On renvoie la somme des coûts des arêtes de notre arbre couvrant *)
   !cout_total
 
 
 
-let solver_by_branch_and_bound  (g:graphe)(s:int)(nb_debris : int):int list =
+let solver_by_branch_and_bound  (g:graphe)(s:int)(nb_debris : int):(int list*float) =
   let meilleures_cout_global = ref infinity in
-  let tous_debris = List.init nb_debris (fun i -> i) in
   let meillleur_chemin_debris = ref [] in 
   let todo = creer_tas nb_debris in
-  let noeud_racine = create_noeud [s] (prim_heuristique g s) 0.0 s 1 in
+  let noeud_racine = create_noeud [s] (prim_heuristique g s []) 0.0 s 1 in
   push todo noeud_racine ;
   while (todo.taille > 0) do
     let noeud_courant = pop todo in
-    if noeud_courant.heuristique>= !meilleures_cout_global then begin
-      ()
-    end
-    if noeud_courant.taille_chemin = g.nb_sommet then begin
-      if noeud_courant.cout_actuel<!meilleures_cout_global then begin
-        meilleures_cout_global := noeud_courant.cout_actuel;
-        meillleur_chemin_debris:= noeud_courant.chemin;
-      end
-    end
-
-    for debris_voisin=0 to g.nb_sommet-1 do 
-      if not (List.mem i noeud_courant.chemin) then begin
-        let nouveau_cout =noeud_courant.cout_actuel + g.matrix.(noeud.noeud_courant.indice).(debris_voisin) in
-        if nouveau_cout >= !meilleures_cout_global then begin
-          ()
+    if noeud_courant.heuristique < !meilleures_cout_global then begin
+      if noeud_courant.taille_chemin = g.nb_sommet then begin
+        if noeud_courant.cout_actuel < !meilleures_cout_global then begin
+          meilleures_cout_global := noeud_courant.cout_actuel;
+          meillleur_chemin_debris:= noeud_courant.chemin;
         end
-        let debris_restants = List.filter (fun x -> not (List.mem x noeud_courant.chemin)) tous_debris in
-        let heuristique = prim_heuristique g debris_voisin in
-        let nouvelle_borne = nouveau_cout + heuristique in 
-        if nouvelle_borne<!meilleures_cout_global then begin
-          let nouveau_noeud = create_noeud  debris_voisin :: noeud_courant.chemin in
-          push todo nouveau_noeud;
-        end
-      
-
       end
-    done
+    else begin
+      for debris_voisin = 0 to g.nb_sommet-1 do 
+        if not (List.mem debris_voisin noeud_courant.chemin) then begin
+          let nouveau_cout =noeud_courant.cout_actuel +. g.matrix.(noeud_courant.indice).(debris_voisin) in
+          if nouveau_cout < !meilleures_cout_global then begin
+            let heuristique = prim_heuristique g debris_voisin noeud_courant.chemin in
+            let nouvelle_borne = nouveau_cout +. heuristique in 
+            if nouvelle_borne < !meilleures_cout_global then begin
+              let nouveau_noeud = create_noeud (debris_voisin :: noeud_courant.chemin) nouvelle_borne nouveau_cout debris_voisin (noeud_courant.taille_chemin + 1) in
+              push todo nouveau_noeud;
+            end
+          end
+        end
+      done
+    end
+  end
   done;
-  (!meilleures_cout_global,!meilleures_cout_global)
+  (!meillleur_chemin_debris,!meilleures_cout_global)
+ 
+let rec print_list (lst:int list):unit = 
+  match List.rev lst with 
+    |[]-> Printf.printf "\n" 
+    |[u]->Printf.printf "%d \n" u
+    |h::t -> Printf.printf "%d-" h;
+             print_list t
 
 
-let mat_cout = charger_matrice "matrice_cout.txt" 
+let mat_cout,n_db = charger_matrice "matrice_cout.txt" 
 
 
 
 
 
-let tas = creer_tas 4 
-let noeud1 = create_noeud [] 0.0 40.3 1 
-let noeud2 = create_noeud [] 0.0 60.2 1 
-let noeud3 = create_noeud [] 0.0 86.2 1 
-let noeud4 =  create_noeud [] 0.0 3.0 1 
 
+let g1 = {nb_sommet = n_db;matrix = mat_cout}
 
 let () = 
-  push tas noeud1;
-  push tas noeud2;
-  push tas noeud3;
-  push tas noeud4;
 
-  affiche_tas tas 0 " " ;
-  let noued_recup = pop tas in
-  print_newline();
-  affiche_tas tas 0 " ";
-  print_newline()
-
+  let chemin, cout = solver_by_branch_and_bound g1 0 g1.nb_sommet in
   
 
+  Printf.printf "Coût optimal trouvé : %.2f\n" cout;
+  print_list chemin;
 

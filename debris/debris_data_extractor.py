@@ -91,7 +91,7 @@ cibles_mission = []
 
 # On charge les débris du fichier
 cibles_mission = list(lecteur_csv)
-n=5
+n=12
 
 print(f"Affichage des données : {n} sélectionnés")
 lst_debris_n_cibles = select_n_coplanaire_debris(cibles_mission,n)
@@ -137,6 +137,6 @@ matrice_temps = np.round(matrice2,3)
 # print()
 # print(matrice_temps)
 #--------Exportation en TXT pour la partie en OCAML -----------
-np.savetxt('matrice_cout.txt', matrice_cout_statique, fmt='%.3f',delimiter=',')
+np.savetxt('matrice_cout.txt', matrice_cout_statique, fmt='%.3f', delimiter=',', header=str(n), comments='')
 
 
