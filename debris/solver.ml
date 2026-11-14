@@ -1,18 +1,22 @@
+(*On définit le type noeud grace aux attributs suivants : *)
 type noeud = {
-  mutable chemin : int list;
-  mutable heuristique: float;
-  mutable cout_actuel:float;
-  mutable taille_chemin:int;
-  indice :int;
-}
+  mutable chemin : int list; (*le chemin parcouru jusqu'a ce noeud*)
+  mutable heuristique: float; (*l'heuristique ie la borne inf estimant le cout restant à l'exploration*)
+  mutable cout_actuel:float; (*le cout actuel consommé durant l'exploration en cours*)
+  (*la taille du chemin utile pour vérifier que qu'on a parcouru 
+  tout les sommets du graphe (complexité en O(1) plutot que O(n) avec List.length))*)
+  mutable taille_chemin:int; 
 
+  indice :int; (*indice du sommet*)
+}
+(*Definition du type tas min*)
 type tas_min = {
     mutable taille : int;
     mutable capacite :int;
     mutable elements: noeud array;
 
 }
-
+(*Graphe codé par matrice d'adjacence le plus adapté ici avec notre matrice de cout*)
 type graphe = {
     matrix : float array array;
     nb_sommet:int;
@@ -103,7 +107,7 @@ let push (tas:tas_min)(new_noeud :noeud):unit=
   percolation_ascendante tas (tas.taille-1) (*On remonte depuis l'ancien dernier  indice ie tas.taille -1*)
 
 
- let rec affiche_tas (tas:tas_min)(i:int)(indentation:string):unit = 
+let rec affiche_tas (tas:tas_min)(i:int)(indentation:string):unit = 
   if i < tas.taille then begin
     affiche_tas tas (fils_droit i) (indentation ^ "    ");
     
@@ -161,7 +165,7 @@ let prim_heuristique (g:graphe)(s:int)(deja_visite:int list):float=
   
   (* On insère le sommet de départ dans le tas *)
   push todo noeud_s;
-  
+
   (* On continue tant que le tas n'est pas vide*)
   while todo.taille>0 do
     
@@ -205,45 +209,70 @@ let prim_heuristique (g:graphe)(s:int)(deja_visite:int list):float=
 
 
 let solver_by_branch_and_bound  (g:graphe)(s:int)(nb_debris : int):(int list*float) =
-  let meilleures_cout_global = ref infinity in
+  (*On initialise les solutions : le meilleur cout global + le chemin pour avoir ce cout *)
+  let meilleur_cout_global = ref infinity in
   let meillleur_chemin_debris = ref [] in 
+
+  (*on initialise une file de priorité vide grace a un tas min*)
   let todo = creer_tas nb_debris in
+
+  (*On crée le noeud racine celui à partir duquel on commence l'exploration*)
   let noeud_racine = create_noeud [s] (prim_heuristique g s []) 0.0 s 1 in
+
+  (*On push ce noeud dans la file*)
   push todo noeud_racine ;
+
+  (*On continue l'exploration tant que la file n'est pas vide*)
   while (todo.taille > 0) do
+
+    (*on pop la file de priorité en extrayant le débris minimisant l' heuristique*)
     let noeud_courant = pop todo in
-    if noeud_courant.heuristique < !meilleures_cout_global then begin
+
+    (*Elagage , on continue l'exploration tant qu'il y a un noeud prometteur*)
+    if noeud_courant.heuristique < !meilleur_cout_global then begin
+
+      (*Si on a visité tout le graphe *)
       if noeud_courant.taille_chemin = g.nb_sommet then begin
-        if noeud_courant.cout_actuel < !meilleures_cout_global then begin
-          meilleures_cout_global := noeud_courant.cout_actuel;
+        (*On met a jour la solution optimale du problème ie le chemin et le cout global*)
+        if noeud_courant.cout_actuel < !meilleur_cout_global then begin
+          (*Alors on a trouvé notre solution qui minimise le cout global*)
+          meilleur_cout_global := noeud_courant.cout_actuel;
           meillleur_chemin_debris:= noeud_courant.chemin;
         end
       end
-    else begin
-      for debris_voisin = 0 to g.nb_sommet-1 do 
-        if not (List.mem debris_voisin noeud_courant.chemin) then begin
-          let nouveau_cout =noeud_courant.cout_actuel +. g.matrix.(noeud_courant.indice).(debris_voisin) in
-          if nouveau_cout < !meilleures_cout_global then begin
-            let heuristique = prim_heuristique g debris_voisin noeud_courant.chemin in
-            let nouvelle_borne = nouveau_cout +. heuristique in 
-            if nouvelle_borne < !meilleures_cout_global then begin
-              let nouveau_noeud = create_noeud (debris_voisin :: noeud_courant.chemin) nouvelle_borne nouveau_cout debris_voisin (noeud_courant.taille_chemin + 1) in
-              push todo nouveau_noeud;
+      (*Sinon on tente de prolonger le chemmin vers chaque voisin possible*)
+      else begin
+        for debris_voisin = 0 to g.nb_sommet-1 do 
+          (*On vérifie que le noeud exploré n'est pas déja visité*)
+          if not (List.mem debris_voisin noeud_courant.chemin) then begin
+            (*Dans ce cas on calcule le cout exact du noeud *)
+            let nouveau_cout =noeud_courant.cout_actuel +. g.matrix.(noeud_courant.indice).(debris_voisin) in
+            (*ET on kill la branche si ce cout est superieur au cout global*)
+            if nouveau_cout < !meilleur_cout_global then begin
+              (*On estime le cout restant du chemin avec l'algo de Prim*)
+              let heuristique = prim_heuristique g debris_voisin noeud_courant.chemin in
+              let nouvelle_borne = nouveau_cout +. heuristique in 
+
+              (*on ajoute le noeud à la file seulement si la borne est interessante*)
+              if nouvelle_borne < !meilleur_cout_global then begin
+                let nouveau_noeud = create_noeud (debris_voisin :: noeud_courant.chemin) nouvelle_borne nouveau_cout debris_voisin (noeud_courant.taille_chemin + 1) in
+                push todo nouveau_noeud;
+              end
             end
           end
-        end
-      done
-    end
+        done
+      end
   end
   done;
-  (!meillleur_chemin_debris,!meilleures_cout_global)
+  (*On renvoie le chemin de l'exploration et le cout optimal*)
+  (!meillleur_chemin_debris,!meilleur_cout_global)
  
-let rec print_list (lst:int list):unit = 
+let rec print_list_int (lst:int list):unit = 
   match List.rev lst with 
     |[]-> Printf.printf "\n" 
     |[u]->Printf.printf "%d \n" u
     |h::t -> Printf.printf "%d-" h;
-             print_list t
+             print_list_int t
 
 
 let mat_cout,n_db = charger_matrice "matrice_cout.txt" 
@@ -261,5 +290,5 @@ let () =
   
 
   Printf.printf "Coût optimal trouvé : %.2f\n" cout;
-  print_list chemin;
+  print_list_int chemin;
 
