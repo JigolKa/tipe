@@ -139,4 +139,5 @@ matrice_temps = np.round(matrice2,3)
 #--------Exportation en TXT pour la partie en OCAML -----------
 np.savetxt('matrice_cout.txt', matrice_cout_statique, fmt='%.3f', delimiter=',', header=str(n), comments='')
 
+np.savetxt('matrice_temps.txt', matrice_temps, fmt='%.3f', delimiter=',', header=str(n), comments='')
 

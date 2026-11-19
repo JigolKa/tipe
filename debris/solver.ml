@@ -135,6 +135,13 @@ let charger_matrice (chemin : string) : (float array array*int) =
   in
   (boucle [],nb_debris)
 
+let rec mission_duration (chemin :int list)(matrice :float array array):float = 
+  match chemin with 
+  |[] -> 0.0
+  |[u] -> 0.0
+  |h1::h2::t -> matrice.(h1).(h2) +. mission_duration (h2::t) matrice
+
+
 
 let prim_heuristique (g:graphe)(s:int)(deja_visite:int list):float= 
   (*------Création de tableaux indéxés par le nombre de sommets de g--------*)
@@ -276,7 +283,7 @@ let rec print_list_int (lst:int list):unit =
 
 
 let mat_cout,n_db = charger_matrice "matrice_cout.txt" 
-
+let mat_temps,_ = charger_matrice "matrice_temps.txt"
 
 
 
@@ -288,7 +295,14 @@ let () =
 
   let chemin, cout = solver_by_branch_and_bound g1 0 g1.nb_sommet in
   
+  let duration = mission_duration (List.rev chemin) mat_temps /. 60.0  in
+
 
   Printf.printf "Coût optimal trouvé : %.2f\n" cout;
+  Printf.printf "Chemin : ";
   print_list_int chemin;
+
+  Printf.printf "la mission durera %.0f h." duration;
+  print_newline();
+
 
