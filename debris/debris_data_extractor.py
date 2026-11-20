@@ -8,8 +8,17 @@ from hapsira.twobody import Orbit
 from hapsira.plotting import OrbitPlotter
 from hapsira.plotting.orbit.backends import Plotly3D
 from hapsira.maneuver import Maneuver
+import os
 
 
+def supprimer_txt(chemin_fichier: str) -> None:
+  if not chemin_fichier.lower().endswith(".txt"):
+    raise ValueError("Le fichier doit avoir l'extension .txt")
+  try:
+    os.remove(chemin_fichier)
+  except FileNotFoundError:
+    pass
+  
 #------Fonction permettant de selectionner les n débris les plus coplanaires entre eux------
 def select_n_coplanaire_debris(lst_debris, n):
     r = (len(lst_debris) - 1) // 2 #on prend l'indice median
@@ -91,7 +100,7 @@ cibles_mission = []
 
 # On charge les débris du fichier
 cibles_mission = list(lecteur_csv)
-n=12
+n=11
 
 print(f"Affichage des données : {n} sélectionnés")
 lst_debris_n_cibles = select_n_coplanaire_debris(cibles_mission,n)
@@ -137,6 +146,9 @@ matrice_temps = np.round(matrice2,3)
 # print()
 # print(matrice_temps)
 #--------Exportation en TXT pour la partie en OCAML -----------
+supprimer_txt("matrice_cout.txt")
+supprimer_txt("matrice_temps.txt")
+
 np.savetxt('matrice_cout.txt', matrice_cout_statique, fmt='%.3f', delimiter=',', header=str(n), comments='')
 
 np.savetxt('matrice_temps.txt', matrice_temps, fmt='%.3f', delimiter=',', header=str(n), comments='')

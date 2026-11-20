@@ -253,7 +253,7 @@ let solver_by_branch_and_bound  (g:graphe)(s:int)(nb_debris : int):(int list*flo
           (*On vérifie que le noeud exploré n'est pas déja visité*)
           if not (List.mem debris_voisin noeud_courant.chemin) then begin
             (*Dans ce cas on calcule le cout exact du noeud *)
-            let nouveau_cout =noeud_courant.cout_actuel +. g.matrix.(noeud_courant.indice).(debris_voisin) in
+            let nouveau_cout = noeud_courant.cout_actuel +. g.matrix.(noeud_courant.indice).(debris_voisin) in
             (*ET on kill la branche si ce cout est superieur au cout global*)
             if nouveau_cout < !meilleur_cout_global then begin
               (*On estime le cout restant du chemin avec l'algo de Prim*)
