@@ -3,6 +3,9 @@ type graphe_complet = int array array
 type chaine = int array
 type cell = int*int
 
+let eps = 1e-9
+
+
 
 let () = Random.self_init ()
 
@@ -403,16 +406,18 @@ let test_augment_matrix () =
 (* renvoie l'indice de la variable entrante et sortante *)
 (* on suppose avoir rhs et la fonction objectif courante dans a *)
 let find_entering_exiting_indices (a: float matrix) : (int * int) option =
-  let eps = 1e-9 in
-  let n = Array.length a and m = Array.length a.(0) in
-  let entering = ref (-1) and mini = ref (-. eps) in
+  let n = Array.length a in
+  let m = Array.length a.(0) in
+  let entering = ref (-1) in
+  let mini = ref (-. eps) in
   for j = 0 to m-2 do
     if a.(n-1).(j) < !mini then (entering := j; mini := a.(n-1).(j))
   done;
-  if !entering < 0 then None                       (* optimal *)
+  if !entering < 0 then None  (* optimal *)
   else begin
     let p = !entering in
-    let exiting = ref (-1) and best = ref infinity in
+    let exiting = ref (-1) in
+    let best = ref infinity in
     for i = 0 to n-2 do
       if a.(i).(p) > eps then begin
         let r = a.(i).(m-1) /. a.(i).(p) in
@@ -430,21 +435,15 @@ let alter_row (a: float matrix) ((pi,pj): int*int)  =
   let pivot_value = a.(pi).(pj) in
   (* normaliser pi-th row first *)
   let rows = Array.length a in
-  (* let columns = Array.length a.(0) in *)
 
   (* normalise la ligne du pivot pour avoir un 1 dans la case du pivot *)
   (* Rpi <- (1-pivot_value)/pivot_value *Rpi *)
   a.(pi) <- (1. /. pivot_value) ** a.(pi);
-  (* for j=0 to columns-1 do
-     a.(pi).(j) <- a.(pi).(j) -. ((1.-.pivot_value)/.pivot_value) *. a.(pi).(j)
-     done; *)
   for i=0 to rows-1 do
     if pi <> i then
       begin
         let value_in_pivot_column = a.(i).(pj) in
-        (* Ri <- Ri - value_in_pivot_column*Rpi *)
         a.(i) <- a.(i) -- (value_in_pivot_column**a.(pi))
-        (* rhs.(i) <- rhs.(i) -. value_in_pivot_column *. rhs.(pi) *)
       end
   done
 
